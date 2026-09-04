@@ -6,8 +6,8 @@ object Form1: TForm1
   Caption = 'Conways Game of Life'
   ClientHeight = 704
   ClientWidth = 704
+  LCLVersion = '4.8.0.0'
   OnCreate = FormCreate
-  LCLVersion = '3.8.0.0'
   object PaintBox1: TPaintBox
     Left = 0
     Height = 704

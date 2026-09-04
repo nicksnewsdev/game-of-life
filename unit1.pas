@@ -90,8 +90,14 @@ type
 
     // Dragging states
     FIsDragging: Boolean;
+    FMouseIsDown: Boolean;
     FLastMouseX: Integer;
     FLastMouseY: Integer;
+
+    // Drawing states
+    FLastDrawCellX: Integer;
+    FLastDrawCellY: Integer;
+    FHasLastDrawCell: Boolean;
 
     // Clicking states
     FMouseDownX: Integer;
@@ -133,6 +139,8 @@ begin
 
   FIsPlaying := False;
   FSimulationSpeed := 5;
+
+  FMouseIsDown := False;
 
   // Create a timer internally for the simulation
   FSimulationTimer := TTimer.Create(Self);
@@ -255,25 +263,46 @@ begin
   RenderCellGrid(PaintBox1.Canvas);
 end;
 
-procedure TForm1.PaintBox1MouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure TForm1.PaintBox1MouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
 begin
   if Button = mbLeft then
+  begin
+    FMouseIsDown := True;
+    FMouseDownX := X;
+    FMouseDownY := Y;
+    FHasLastDrawCell := False;
+
+    // Draw the initial cell
+    ToggleCellAtViewportPosition(X, Y);
+
+    // Remember which cell was initially modified to not retoggle it
+    FLastDrawCellX := FViewport.ViewportToGridX(X);
+    FLastDrawCellY := FViewport.ViewportToGridY(Y);
+    FHasLastDrawCell := True;
+
+    PaintBox1.Invalidate;
+  end;
+
+  if Button = mbRight then
   begin
     FIsDragging := True;
     FDidDrag := False;
 
     FLastMouseX := X;
     FLastMouseY := Y;
-
     FMouseDownX := X;
     FMouseDownY := Y;
   end;
 end;
 
-procedure TForm1.PaintBox1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+procedure TForm1.PaintBox1MouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
 var
   DeltaX, DeltaY: Integer;
+  CellGridX, CellGridY: Integer;
 begin
+  // Handle panning with mouse right
   if FIsDragging then
   begin
     DeltaX := X - FLastMouseX;
@@ -287,11 +316,34 @@ begin
     FLastMouseX := X;
     FLastMouseY := Y;
 
-    if (Abs(X - FMouseDownX) > 2) or (Abs(Y - FMouseDownY) > 2) then
+    if (Abs(X - FMouseDownX) > 2) or
+       (Abs(Y - FMouseDownY) > 2) then
       FDidDrag := True;
 
     UpdateViewportLabel;
     PaintBox1.Invalidate;
+  end;
+
+  // Handle continuous drawing with mouse left
+  if FMouseIsDown then
+  begin
+    CellGridX := FViewport.ViewportToGridX(X);
+    CellGridY := FViewport.ViewportToGridY(Y);
+
+    // Only toggle when entering a different cell
+    // This prevents constantly toggling the same cell youre on
+    if (not FHasLastDrawCell) or
+       (CellGridX <> FLastDrawCellX) or
+       (CellGridY <> FLastDrawCellY) then
+    begin
+      ToggleCellAtViewportPosition(X, Y);
+
+      FLastDrawCellX := CellGridX;
+      FLastDrawCellY := CellGridY;
+      FHasLastDrawCell := True;
+
+      PaintBox1.Invalidate;
+    end;
   end;
 end;
 
@@ -299,10 +351,12 @@ procedure TForm1.PaintBox1MouseUp(Sender: TObject; Button: TMouseButton; Shift: 
 begin
   if Button = mbLeft then
   begin
-    FIsDragging := False;
+    FMouseIsDown := False;
+  end;
 
-    if not FDidDrag then
-      ToggleCellAtViewportPosition(X, Y);
+  if Button = mbRight then
+  begin
+    FIsDragging := False;
   end;
 end;
 
